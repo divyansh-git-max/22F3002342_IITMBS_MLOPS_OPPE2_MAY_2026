@@ -20,10 +20,11 @@ jobs:
         workload_identity_provider: ${{ secrets.CD_GCP_WORKLOAD_IDENTITY_PROVIDER }}
         service_account: ${{ secrets.CD_GCP_SERVICE_ACCOUNT_EMAIL }}
 
-    - name: Set up Cloud SDK
-      uses: google-github-actions/setup-gcloud@v1
+    - name: Set up Cloud SDK with GKE authentication plugin
+      uses: google-github-actions/setup-gcloud@v2
       with:
         project_id: project-42aa52a6-0cc6-4d7b-863
+        install_components: gke-gcloud-auth-plugin
 
     - name: Configure Docker for GAR
       run: |
@@ -34,6 +35,9 @@ jobs:
         IMAGE_NAME="us-central1-docker.pkg.dev/project-42aa52a6-0cc6-4d7b-863/oppe2-repo/oppe2-api:latest"
         docker build -t $IMAGE_NAME .
         docker push $IMAGE_NAME
+
+    - name: Verify GKE authentication plugin
+      run: gke-gcloud-auth-plugin --version
 
     - name: Get GKE Credentials
       run: |

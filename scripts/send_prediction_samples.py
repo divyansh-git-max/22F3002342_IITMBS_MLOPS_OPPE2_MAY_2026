@@ -4,7 +4,6 @@ import requests
 
 def run(base_url):
     df = pd.read_csv('data/prediction_sample_100.csv')
-    df['gender'] = df['gender'].map({1: 'male', 0: 'female'}).fillna('male')
     success = 0
     results = []
     

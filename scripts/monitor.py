@@ -8,8 +8,8 @@ def main():
     
     # ensure schemas match for evidently
     report = Report(metrics=[DataDriftPreset()])
-    report.run(reference_data=train_df, current_data=sample_df)
-    report.save('models/drift_report.html')
+    snapshot = report.run(reference_data=train_df, current_data=sample_df)
+    snapshot.save_html('models/drift_report.html')
     
     with open('models/drift_summary.md', 'w') as f:
         f.write("# Data Drift Summary\n")

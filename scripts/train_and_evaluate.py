@@ -79,6 +79,7 @@ def run_pipeline():
     pipeline = Pipeline(steps=[('preprocessor', preprocessor), ('classifier', final_clf)])
     
     # 5. MLflow Tracking
+    mlflow.set_tracking_uri("http://127.0.0.1:8100")
     mlflow.set_experiment("OPPE2_Heart_Disease")
     with mlflow.start_run():
         pipeline.fit(X_train, y_train)
@@ -91,7 +92,7 @@ def run_pipeline():
         
         mlflow.log_params(best_params)
         mlflow.log_metrics({"accuracy": acc, "precision": prec, "recall": rec, "f1": f1})
-        mlflow.sklearn.log_model(pipeline, "model")
+        mlflow.sklearn.log_model(pipeline, "model", serialization_format="cloudpickle")
         print(f"Metrics - Acc: {acc:.3f}, F1: {f1:.3f}")
 
     # Save Pipeline

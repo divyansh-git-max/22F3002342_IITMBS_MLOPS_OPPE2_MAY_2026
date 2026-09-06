@@ -4,6 +4,13 @@ metadata:
   name: heart-disease-api
 spec:
   replicas: 1
+  # A one-node cluster cannot accommodate a temporary extra pod during a
+  # rolling update. Replace the old pod before scheduling the replacement.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
       app: heart-disease-api

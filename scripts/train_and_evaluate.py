@@ -9,23 +9,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import FunctionTransformer
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from fairlearn.metrics import MetricFrame, selection_rate, false_positive_rate, false_negative_rate
-
-def map_gender(X):
-    X = X.copy()
-    if 'gender' in X.columns:
-        X['gender'] = X['gender'].map({'male': 1, 'female': 0}).fillna(X['gender'])
-    return X
-
-def map_gender_df(X):
-    # Ensure it's a dataframe if numpy array is passed (unlikely if we configure right)
-    if not isinstance(X, pd.DataFrame):
-        X = pd.DataFrame(X, columns=['gender'])
-    X['gender'] = X['gender'].map({'male': 1, 'female': 0, 1: 1, 0: 0})
-    return X
 
 def run_pipeline():
     print("=== Loading Data ===")
@@ -45,9 +32,11 @@ def run_pipeline():
     numeric_features = ['age', 'cp', 'trestbps', 'chol', 'fbs', 'restecg', 'thalach', 'exang', 'oldpeak', 'slope', 'ca', 'thal']
     
     numeric_transformer = SimpleImputer(strategy='median')
+    # Use only scikit-learn built-ins so the saved pipeline can be loaded by
+    # Uvicorn in the Docker container without importing this training script.
     gender_transformer = Pipeline(steps=[
-        ('map', FunctionTransformer(map_gender, validate=False)),
-        ('impute', SimpleImputer(strategy='most_frequent'))
+        ('impute', SimpleImputer(strategy='most_frequent')),
+        ('encode', OneHotEncoder(handle_unknown='ignore', drop='if_binary'))
     ])
     
     preprocessor = ColumnTransformer(
@@ -58,7 +47,7 @@ def run_pipeline():
         remainder='passthrough'
     )
     
-    feature_names = numeric_features + ['gender']
+    feature_names = numeric_features + ['gender_male']
 
     # 3. Optuna for tuning
     def objective(trial):

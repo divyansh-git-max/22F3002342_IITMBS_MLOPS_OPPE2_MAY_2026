@@ -1,158 +1,130 @@
-# OPPE 2 Operations Runbook
+# Heart Disease Prediction — Production MLOps Pipeline
 
-This repository contains the complete solution for the Heart Disease Prediction deployment pipeline on Google Cloud Platform. 
-It satisfies all requirements for Deliverables 1 through 7, including Model Explainability, Fairness Testing, Dockerized API on GKE, Logging, Stress Testing, and Drift Detection.
+This repository operationalizes a heart disease classifier as an explainable, observable, scalable API on Google Cloud Platform. It was built for the IITM BS MLOps OPPE-2 assessment (Weeks 4–9).
 
-## A. Google Cloud Shell — start the development VM
-```bash
-gcloud compute instances start instance-20260905-173452 \
-  --zone us-central1-a \
-  --project project-42aa52a6-0cc6-4d7b-863
+## Objective
+
+The system predicts whether a patient is likely to have heart disease from clinical features. It demonstrates the path from reproducible training to a containerized production API, with explainability, fairness testing, logging, autoscaling, load testing, and input-drift detection.
+
+## Pipeline
+
+```text
+Training CSV -> Optuna training + MLflow -> best_model.pkl
+                    |-> SHAP feature-impact analysis
+                    |-> Fairlearn age-group fairness analysis
+                    v
+FastAPI /predict -> JSON stdout logs -> GCP Cloud Logging
+                    v
+Docker -> Artifact Registry -> GitHub Actions (WIF) -> GKE
+                    |-> HPA: 1 to 3 pods
+                    |-> 100 individual prediction requests
+                    |-> wrk stress test and Evidently drift report
 ```
 
-## B. Google Cloud Shell — create a NEW OPPE-only artifact/data bucket
-```bash
-gcloud storage buckets create gs://oppe2-artifacts-42aa52a6 \
-  --project project-42aa52a6-0cc6-4d7b-863 \
-  --location us-central1 \
-  --uniform-bucket-level-access
+## Deliverables and evidence
+
+| Requirement | Implementation / evidence |
+| --- | --- |
+| Explainability | models/shap_summary.png, models/shap_importance.csv, and models/shap_analysis.md |
+| Fairness | Age-based Fairlearn results in models/fairness_analysis.md |
+| Deployment | Dockerfile, Kubernetes manifests, and GitHub Actions workflows |
+| Scaling | k8s/hpa.yaml with maximum three API pods |
+| Observability | app/main.py emits timestamped feature and prediction JSON logs |
+| Per-sample prediction | data/prediction_sample_100.csv and data/prediction_results.csv |
+| Stress testing | loadtest/predict.lua plus captured wrk metrics |
+| Drift detection | models/drift_report.html and models/drift_summary.md |
+
+## Repository layout
+
+```text
+app/                 FastAPI application and request schema
+data/                Source CSV and generated prediction sample
+k8s/                 Deployment, LoadBalancer service, and HPA
+loadtest/            wrk Lua request payload
+models/              Model plus SHAP, fairness, and drift outputs
+scripts/             Training, MLflow, prediction, and monitor tools
+tests/               API tests
+.github/workflows/   CI and CD workflows
 ```
 
-## C. Google Cloud Shell — create Docker Artifact Registry
-```bash
-gcloud artifacts repositories create oppe2-repo \
-  --repository-format=docker \
-  --location=us-central1 \
-  --project project-42aa52a6-0cc6-4d7b-863
+## API
+
+- GET /health reports whether the model is ready.
+- POST /predict accepts one patient record and returns a binary prediction.
+
+Example request:
+
+```json
+{
+  "age": 50, "gender": "male", "cp": 1, "trestbps": 120,
+  "chol": 200, "fbs": 0, "restecg": 1, "thalach": 150,
+  "exang": 0, "oldpeak": 1.0, "slope": 1, "ca": 0, "thal": 2
+}
 ```
 
-## D. Google Cloud Shell — create the GKE cluster
-Wait until the exam prompt provides the required cluster name and zone:
-```bash
-gcloud container clusters create oppe2-cluster \
-  --zone us-central1-a \
-  --machine-type e2-medium \
-  --num-nodes 1 \
-  --project project-42aa52a6-0cc6-4d7b-863
-```
-
-## E. Google Cloud Shell — SSH to the prepared development VM
-```bash
-gcloud compute ssh instance-20260905-173452 \
-  --zone us-central1-a \
-  --project project-42aa52a6-0cc6-4d7b-863
-```
-
-## F. VM SSH — activate environment, configure Docker, and configure kubectl
-```bash
-cd ~/oppe2_workspace/22F3002342_IITMBS_MLOPS_OPPE2_MAY_2026
-source ~/oppe2_workspace/.venv/bin/activate
-gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
-gcloud container clusters get-credentials oppe2-cluster \
-  --zone us-central1-a \
-  --project project-42aa52a6-0cc6-4d7b-863
-kubectl get nodes
-```
-
-## G. VM SSH — MLflow server
-We run a persistent SQLite MLflow backend with GCP bucket artifact storage. The VM identity must have Storage Object Admin access to the new bucket.
+## Development
 
 ```bash
-# Verify/Grant Storage Access
-gcloud projects add-iam-policy-binding project-42aa52a6-0cc6-4d7b-863 \
-  --member="serviceAccount:<YOUR_COMPUTE_DEFAULT_SA>@developer.gserviceaccount.com" \
-  --role="roles/storage.admin"
-
-export MLFLOW_ARTIFACTS_DESTINATION=gs://oppe2-artifacts-42aa52a6
-bash scripts/run_mlflow_server.sh
-```
-Verify health:
-```bash
-curl http://127.0.0.1:8100/version
-```
-
-## H. VM SSH — training, MLflow, and local API
-Run the data science pipeline (Deliverables 2, 3, 5, 7):
-```bash
+python -m venv .venv
+# Windows PowerShell: .\.venv\Scripts\Activate.ps1
+# Linux VM: source .venv/bin/activate
+pip install -r requirements.txt
 python scripts/train_and_evaluate.py
-```
-*(This generates the SHAP plots, Fairness metrics, the 100-row sample dataset, and logs to MLflow).*
-
-Run tests:
-```bash
+python scripts/monitor.py
 pytest -q
-```
-Test API locally:
-```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-## I. GitHub Actions / CI-CD
-Pushing to the `main` branch automatically triggers CI/CD using WIF GitHub secrets (`CD_GCP_WORKLOAD_IDENTITY_PROVIDER` and `CD_GCP_SERVICE_ACCOUNT_EMAIL`).
+For VM-based tracking, set MLFLOW_TRACKING_URI to http://127.0.0.1:8100 before training. MLflow uses VM-local SQLite metadata and the OPPE GCS artifact bucket gs://oppe2-artifacts-42aa52a6.
+
+## Cloud deployment
+
+The deployed environment uses the oppe2-repo Artifact Registry repository, the oppe2-cluster GKE cluster in us-central1-a, and the heart-disease-api Deployment. The public service is heart-disease-service.
+
+A push to main runs CI/CD. GitHub Actions authenticates through Workload Identity Federation, builds and pushes the image, then applies the Deployment, Service, and HPA. No static GCP service-account key is stored in GitHub.
+
 ```bash
-git add .
-git commit -m "feat: deploying complete pipeline"
-git push origin main
+kubectl get svc heart-disease-service
+curl http://EXTERNAL_IP/health
 ```
 
-## J. GKE validation and scaling
-After the GitHub Action completes:
+## Observability and performance
+
+Run the 100-row client from the development VM:
+
 ```bash
-kubectl apply -f k8s/deployment.yaml
-kubectl apply -f k8s/service.yaml
-kubectl apply -f k8s/hpa.yaml
-kubectl rollout status deployment/heart-disease-api --timeout=300s
-kubectl get pods
-kubectl get hpa
-kubectl get svc heart-disease-service -w
+python scripts/send_prediction_samples.py --base-url "http://EXTERNAL_IP"
 ```
 
-## K. Logging and observability
-The FastAPI app writes structured JSON logs to stdout. These are automatically collected by GKE Cloud Logging.
-1. Go to GCP Console -> **Logging > Logs Explorer**.
-2. Run this query:
+Use this Logs Explorer filter:
+
 ```text
 resource.type="k8s_container"
 resource.labels.cluster_name="oppe2-cluster"
-resource.labels.container_name="api"
-```
-3. Use **Cloud Monitoring / Metrics Explorer** to view pod CPU, memory, and HPA autoscaling behavior under load.
-
-## L. 100 prediction requests
-Sends the 100 random rows to the deployed GKE load balancer.
-```bash
-export EXTERNAL_IP=$(kubectl get svc heart-disease-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-python scripts/send_prediction_samples.py --base-url "http://$EXTERNAL_IP:80"
-```
-Results are saved to `data/prediction_results.csv`.
-
-## M. Stress testing
-Simulate >2,000 concurrent users using `wrk` and the Lua payload script:
-```bash
-wrk -t4 -c2500 -d60s --timeout 10s -s loadtest/predict.lua "http://$EXTERNAL_IP:80/predict"
-```
-Record requests/sec, latency, and socket errors from the output.
-To watch the HPA scale up the pods in real-time, open a second terminal and run:
-```bash
-watch -n 2 'kubectl get hpa; echo; kubectl get pods -o wide'
+jsonPayload.timestamp:*
 ```
 
-## N. Drift
-After generating the 100-row prediction dataset, run the monitor script:
-```bash
-python scripts/monitor.py
-```
-This generates `models/drift_report.html` and `models/drift_summary.md`.
+Run the required high-concurrency test from the VM while observing kubectl get hpa -w in Cloud Shell:
 
-## O. Cleanup — Google Cloud Shell
-After taking screenshots and submitting evidence:
 ```bash
-gcloud container clusters delete oppe2-cluster \
-  --zone us-central1-a \
-  --project project-42aa52a6-0cc6-4d7b-863 \
-  --quiet
-
-gcloud compute instances stop instance-20260905-173452 \
-  --zone us-central1-a \
-  --project project-42aa52a6-0cc6-4d7b-863
+wrk -t4 -c2200 -d60s --timeout 10s -s loadtest/predict.lua "http://EXTERNAL_IP/predict"
 ```
+
+Record throughput, latency, and socket errors or timeouts. The HPA must never exceed three replicas.
+
+## Key outputs
+
+- models/best_model.pkl — model loaded by the API
+- models/shap_analysis.md — least-impact feature explanation
+- models/fairness_analysis.md — age-group fairness outcome
+- models/drift_report.html — interactive input-drift report
+- data/prediction_sample_100.csv — shared prediction and drift sample
+- data/prediction_results.csv — results from the deployed API
+
+## AI-assisted development
+
+See [AI_DOC.md](AI_DOC.md) for a transparent, curated record of the major questions, decisions, fixes, and guidance used during development.
+
+## Cost cleanup
+
+After saving all assessment evidence, stop the VM and delete the GKE cluster when no longer needed. Running nodes and a LoadBalancer can incur charges.

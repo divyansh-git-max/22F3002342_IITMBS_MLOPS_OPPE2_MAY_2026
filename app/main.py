@@ -1,6 +1,7 @@
 import json
 import logging
 import datetime
+import sys
 from fastapi import FastAPI, HTTPException, Response
 import joblib
 import pandas as pd
@@ -16,6 +17,19 @@ if not logger.handlers:
 
 app = FastAPI(title="Heart Disease API")
 model = None
+
+
+def map_gender(X):
+    """Compatibility function required by the previously serialized model."""
+    X = X.copy()
+    if 'gender' in X.columns:
+        X['gender'] = X['gender'].map({'male': 1, 'female': 0}).fillna(X['gender'])
+    return X
+
+
+# The existing joblib model was trained when map_gender belonged to __main__.
+# Register it there before loading so it remains deployable without retraining.
+setattr(sys.modules['__main__'], 'map_gender', map_gender)
 
 @app.on_event("startup")
 def load_model():

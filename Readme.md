@@ -156,4 +156,3 @@ gcloud compute instances stop instance-20260905-173452 \
   --zone <ZONE> \
   --project project-42aa52a6-0cc6-4d7b-863
 ```
-*(Do not delete the OPPE GCS bucket or Artifact Registry until grading is complete).*

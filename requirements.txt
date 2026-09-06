@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+scikit-learn
+pandas
+numpy
+shap
+fairlearn
+evidently
+pydantic
+joblib
+optuna
+mlflow
+pytest
+httpx

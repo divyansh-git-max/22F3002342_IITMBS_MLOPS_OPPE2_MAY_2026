@@ -6,13 +6,13 @@ It satisfies all requirements for Deliverables 1 through 7, including Model Expl
 ## A. Google Cloud Shell — start the development VM
 ```bash
 gcloud compute instances start instance-20260905-173452 \
-  --zone <ZONE> \
+  --zone us-central1-a \
   --project project-42aa52a6-0cc6-4d7b-863
 ```
 
 ## B. Google Cloud Shell — create a NEW OPPE-only artifact/data bucket
 ```bash
-gcloud storage buckets create gs://<UNIQUE_OPPE_BUCKET_NAME> \
+gcloud storage buckets create gs://oppe2-artifacts-42aa52a6 \
   --project project-42aa52a6-0cc6-4d7b-863 \
   --location us-central1 \
   --uniform-bucket-level-access
@@ -20,7 +20,7 @@ gcloud storage buckets create gs://<UNIQUE_OPPE_BUCKET_NAME> \
 
 ## C. Google Cloud Shell — create Docker Artifact Registry
 ```bash
-gcloud artifacts repositories create <GAR_REPOSITORY> \
+gcloud artifacts repositories create oppe2-repo \
   --repository-format=docker \
   --location=us-central1 \
   --project project-42aa52a6-0cc6-4d7b-863
@@ -29,8 +29,8 @@ gcloud artifacts repositories create <GAR_REPOSITORY> \
 ## D. Google Cloud Shell — create the GKE cluster
 Wait until the exam prompt provides the required cluster name and zone:
 ```bash
-gcloud container clusters create <CLUSTER_NAME> \
-  --zone <ZONE> \
+gcloud container clusters create oppe2-cluster \
+  --zone us-central1-a \
   --machine-type e2-medium \
   --num-nodes 1 \
   --project project-42aa52a6-0cc6-4d7b-863
@@ -39,7 +39,7 @@ gcloud container clusters create <CLUSTER_NAME> \
 ## E. Google Cloud Shell — SSH to the prepared development VM
 ```bash
 gcloud compute ssh instance-20260905-173452 \
-  --zone <ZONE> \
+  --zone us-central1-a \
   --project project-42aa52a6-0cc6-4d7b-863
 ```
 
@@ -48,8 +48,8 @@ gcloud compute ssh instance-20260905-173452 \
 cd ~/oppe2_workspace/22F3002342_IITMBS_MLOPS_OPPE2_MAY_2026
 source ~/oppe2_workspace/.venv/bin/activate
 gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
-gcloud container clusters get-credentials <CLUSTER_NAME> \
-  --zone <ZONE> \
+gcloud container clusters get-credentials oppe2-cluster \
+  --zone us-central1-a \
   --project project-42aa52a6-0cc6-4d7b-863
 kubectl get nodes
 ```
@@ -63,7 +63,7 @@ gcloud projects add-iam-policy-binding project-42aa52a6-0cc6-4d7b-863 \
   --member="serviceAccount:<YOUR_COMPUTE_DEFAULT_SA>@developer.gserviceaccount.com" \
   --role="roles/storage.admin"
 
-export MLFLOW_ARTIFACTS_DESTINATION=gs://<UNIQUE_OPPE_BUCKET_NAME>
+export MLFLOW_ARTIFACTS_DESTINATION=gs://oppe2-artifacts-42aa52a6
 bash scripts/run_mlflow_server.sh
 ```
 Verify health:
@@ -113,7 +113,7 @@ The FastAPI app writes structured JSON logs to stdout. These are automatically c
 2. Run this query:
 ```text
 resource.type="k8s_container"
-resource.labels.cluster_name="<CLUSTER_NAME>"
+resource.labels.cluster_name="oppe2-cluster"
 resource.labels.container_name="api"
 ```
 3. Use **Cloud Monitoring / Metrics Explorer** to view pod CPU, memory, and HPA autoscaling behavior under load.
@@ -147,12 +147,12 @@ This generates `models/drift_report.html` and `models/drift_summary.md`.
 ## O. Cleanup — Google Cloud Shell
 After taking screenshots and submitting evidence:
 ```bash
-gcloud container clusters delete <CLUSTER_NAME> \
-  --zone <ZONE> \
+gcloud container clusters delete oppe2-cluster \
+  --zone us-central1-a \
   --project project-42aa52a6-0cc6-4d7b-863 \
   --quiet
 
 gcloud compute instances stop instance-20260905-173452 \
-  --zone <ZONE> \
+  --zone us-central1-a \
   --project project-42aa52a6-0cc6-4d7b-863
 ```

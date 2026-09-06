@@ -1,0 +1,35 @@
+# Python virtual environments
+.venv/
+venv/
+env/
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDEs
+.vscode/
+.idea/
+
+# Environment variables (Secrets)
+.env
+
+# Testing
+.pytest_cache/
+
+# MLflow tracking directory
+mlruns/
+
+# ---------------------------------------------------
+# IMPORTANT NOTE FOR EXAM: 
+# I did NOT ignore *.csv or *.pkl files below. 
+# Depending on the exam instructions, you might need 
+# to push your trained model.pkl to GitHub so your 
+# Dockerfile can copy it!
+# ---------------------------------------------------
+# *.csv
+# *.pkl
+
+DATAFROMOPPE
